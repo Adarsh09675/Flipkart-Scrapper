@@ -193,14 +193,14 @@ export default function Home() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowHistory(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg transition border border-slate-700 text-slate-300"
+              className="flex items-center space-x-2 px-4 py-2 bg-slate-800/50 hover:bg-slate-700 rounded-lg transition border border-slate-700 text-slate-300"
             >
               <History className="w-4 h-4" />
               <span>History</span>
             </button>
             <button
               onClick={() => signout()}
-              className="flex items-center space-x-2 px-4 py-2 bg-slate-800/50 hover:bg-red-900/20 hover:text-red-400 hover:border-red-900/50 rounded-lg transition border border-slate-700 text-slate-400"
+              className="flex items-center space-x-2 px-4 py-2 bg-red-900/10 hover:bg-red-900/20 border border-red-900/30 hover:border-red-900/50 text-red-400 rounded-lg transition"
             >
               <LogOut className="w-4 h-4" />
               <span>Sign Out</span>
