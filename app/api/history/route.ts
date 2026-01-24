@@ -1,10 +1,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/utils/supabase/server';
 
 // GET: Fetch search history (group by search_query)
 export async function GET(req: NextRequest) {
     try {
+        const supabase = await createClient();
         // We want to get distinct search queries and their counts/latest date
         // Supabase/Postgres specific:
         const { data, error } = await supabase
@@ -60,6 +61,7 @@ export async function DELETE(req: NextRequest) {
             return NextResponse.json({ error: 'Query parameter is required' }, { status: 400 });
         }
 
+        const supabase = await createClient();
         const { error } = await supabase
             .from('products')
             .delete()

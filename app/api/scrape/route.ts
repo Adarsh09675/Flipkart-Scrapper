@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { scrapeFlipkart } from '@/lib/scraper';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/utils/supabase/server';
 
 export async function POST(req: NextRequest) {
     try {
@@ -18,15 +18,18 @@ export async function POST(req: NextRequest) {
 
         console.log(`API: Scraped ${products.length} products`);
 
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         // Save to Supabase
-        // Assuming table 'products' exists with columns: name, price, link, image, source, scraped_at
-        // We might need to create this table.
-        // Check if we need to map the data to match the new schema or if 'products' variable already has it?
-        // 'products' is ScrapedProduct[] which doesn't have search_query.
-        // We need to map it.
         const productsWithQuery = products.map(p => ({
             ...p,
-            search_query: query
+            search_query: query,
+            user_id: user.id
         }));
 
         const { data, error } = await supabase
