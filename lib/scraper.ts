@@ -26,18 +26,34 @@ export async function scrapeFlipkart(query: string, minPrice: number, maxPrice: 
     const isVercel = process.env.VERCEL === '1';
 
     if (isVercel) {
-        browser = await chromium.launch({
-            args: chromium_vercel.args,
-            executablePath: await chromium_vercel.executablePath(),
-            headless: true,
-        });
+        console.log("Environment: Vercel - Launching Chromium...");
+        try {
+            const executablePath = await chromium_vercel.executablePath();
+            console.log(`Executable Path: ${executablePath}`);
+
+            browser = await chromium.launch({
+                args: chromium_vercel.args,
+                executablePath: executablePath || undefined,
+                headless: true,
+            });
+            console.log("Browser launched successfully.");
+        } catch (err: any) {
+            console.error("Failed to launch browser on Vercel:", err);
+            throw new Error(`Failed to launch browser on Vercel: ${err.message}. Check if @sparticuz/chromium is compatible with your playwright-core version.`);
+        }
     } else {
         // For local development
-        const { chromium: localChromium } = await import('playwright');
-        browser = await localChromium.launch({
-            headless: true,
-            args: ['--no-sandbox']
-        });
+        console.log("Environment: Local - Launching Playwright...");
+        try {
+            const { chromium: localChromium } = await import('playwright');
+            browser = await localChromium.launch({
+                headless: true,
+                args: ['--no-sandbox']
+            });
+        } catch (err: any) {
+            console.error("Failed to launch local browser:", err);
+            throw new Error(`Failed to launch local browser: ${err.message}. \nTry running: npx playwright install`);
+        }
     }
 
     // Format query for URL
