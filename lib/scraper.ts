@@ -24,28 +24,64 @@ export async function scrapeFlipkart(
     maxPrice: number,
     maxPages: number = 3
 ) {
-    console.log("Launching Vercel-compatible Chromium...");
+    let browser: any;
+    const isVercel = process.env.VERCEL === '1';
 
-    const browser = await playwright.launch({
-        args: chromium.args,
-        executablePath: await chromium.executablePath(),
-        headless: true,
-    });
+    // Stealth args to avoid detection (for local playwright)
+    const stealthArgs = [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-infobars',
+        '--window-position=0,0',
+        '--ignore-certifcate-errors',
+        '--ignore-certifcate-errors-spki-list',
+        '--disable-blink-features=AutomationControlled',
+    ];
+
+    if (isVercel) {
+        console.log("Environment: Vercel - Launching Chromium...");
+        try {
+            const executablePath = await chromium.executablePath();
+            console.log(`Executable Path: ${executablePath}`);
+
+            browser = await playwright.launch({
+                args: [...chromium.args, '--disable-blink-features=AutomationControlled'],
+                executablePath: executablePath || undefined,
+                headless: true,
+            });
+            console.log("Browser launched successfully.");
+        } catch (err: any) {
+            console.error("Failed to launch browser on Vercel:", err);
+            throw new Error(`Failed to launch browser on Vercel: ${err.message}`);
+        }
+    } else {
+        // For local development
+        console.log("Environment: Local - Launching Playwright...");
+        try {
+            // Dynamically import to prevent Vercel build issues with full playwright
+            const { chromium: localChromium } = await import('playwright');
+            browser = await localChromium.launch({
+                headless: true,
+                args: stealthArgs
+            });
+        } catch (err: any) {
+            console.error("Failed to launch local browser:", err);
+            throw new Error(`Failed to launch local browser: ${err.message}. \nTry running: npx playwright install`);
+        }
+    }
 
     const context = await browser.newContext({
         viewport: { width: 1366, height: 768 },
         userAgent:
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+        extraHTTPHeaders: {
+            "Accept-Language": "en-US,en;q=0.9",
+        },
     });
 
     const page = await context.newPage();
 
-    // 🚀 Performance + memory safety
-    await page.route("**/*", route => {
-        const type = route.request().resourceType();
-        if (["image", "font", "media"].includes(type)) route.abort();
-        else route.continue();
-    });
+
 
     page.setDefaultTimeout(45000);
 
@@ -55,7 +91,7 @@ export async function scrapeFlipkart(
     console.log("Opening:", FLIPKART_URL);
 
     try {
-        await page.goto(FLIPKART_URL, { waitUntil: "networkidle" });
+        await page.goto(FLIPKART_URL, { waitUntil: "domcontentloaded" });
 
         // Close login popup
         try {
@@ -73,8 +109,8 @@ export async function scrapeFlipkart(
 
             await slowScroll(page);
 
-            const rawProducts = await page.$$eval(productCard, cards =>
-                cards.map(card => {
+            const rawProducts = await page.$$eval(productCard, (cards: any[]) =>
+                cards.map((card: any) => {
                     const fullText = (card as HTMLElement).innerText;
                     const link = card.querySelector("a[href]")?.getAttribute("href");
                     const image = card.querySelector("img")?.getAttribute("src");
