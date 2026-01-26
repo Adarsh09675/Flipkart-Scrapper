@@ -1,14 +1,11 @@
+import { chromium as playwright, Page } from "playwright-core";
+import chromium from "@sparticuz/chromium";
 
-import { chromium } from 'playwright-core';
-import chromium_vercel from '@sparticuz/chromium';
-
-import { Page } from 'playwright-core';
-
-// Slow scroll function
-async function slowScroll(page: Page, steps = 10, delay = 1500) {
+// Slow scroll
+async function slowScroll(page: Page, steps = 6, delay = 400) {
     for (let i = 0; i < steps; i++) {
         await page.evaluate(() => window.scrollBy(0, window.innerHeight));
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise(res => setTimeout(res, delay));
     }
 }
 
@@ -21,195 +18,132 @@ export type ScrapedProduct = {
     scraped_at: string;
 };
 
-export async function scrapeFlipkart(query: string, minPrice: number, maxPrice: number, maxPages: number = 3) {
-    let browser: any;
-    const isVercel = process.env.VERCEL === '1';
-    // Stealth args to avoid detection
-    const stealthArgs = [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-infobars',
-        '--window-position=0,0',
-        '--ignore-certifcate-errors',
-        '--ignore-certifcate-errors-spki-list',
-        '--disable-blink-features=AutomationControlled', // Critical for preventing bot detection
-    ];
+export async function scrapeFlipkart(
+    query: string,
+    minPrice: number,
+    maxPrice: number,
+    maxPages: number = 3
+) {
+    console.log("Launching Vercel-compatible Chromium...");
 
-    if (isVercel) {
-        console.log("Environment: Vercel - Launching Chromium...");
-        try {
-            const executablePath = await chromium_vercel.executablePath();
-            console.log(`Executable Path: ${executablePath}`);
+    const browser = await playwright.launch({
+        args: chromium.args,
+        executablePath: await chromium.executablePath(),
+        headless: true,
+    });
 
-            browser = await chromium.launch({
-                args: [...chromium_vercel.args, '--disable-blink-features=AutomationControlled'],
-                executablePath: executablePath || undefined,
-                headless: true,
-            });
-            console.log("Browser launched successfully.");
-        } catch (err: any) {
-            console.error("Failed to launch browser on Vercel:", err);
-            throw new Error(`Failed to launch browser on Vercel: ${err.message}. Check if @sparticuz/chromium is compatible with your playwright-core version.`);
-        }
-    } else {
-        // For local development
-        console.log("Environment: Local - Launching Playwright...");
-        try {
-            const { chromium: localChromium } = await import('playwright');
-            browser = await localChromium.launch({
-                headless: true,
-                args: stealthArgs
-            });
-        } catch (err: any) {
-            console.error("Failed to launch local browser:", err);
-            throw new Error(`Failed to launch local browser: ${err.message}. \nTry running: npx playwright install`);
-        }
-    }
+    const context = await browser.newContext({
+        viewport: { width: 1366, height: 768 },
+        userAgent:
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
+    });
 
-    // Format query for URL
+    const page = await context.newPage();
+
+    // 🚀 Performance + memory safety
+    await page.route("**/*", route => {
+        const type = route.request().resourceType();
+        if (["image", "font", "media"].includes(type)) route.abort();
+        else route.continue();
+    });
+
+    page.setDefaultTimeout(45000);
+
     const formattedQuery = encodeURIComponent(query);
-    const FLIPKART_URL = `https://www.flipkart.com/search?q=${formattedQuery}&otracker=search&otracker1=search&marketplace=FLIPKART&as-show=on&as=off`;
+    const FLIPKART_URL = `https://www.flipkart.com/search?q=${formattedQuery}`;
 
-    console.log(`Starting scrape for ${query} at ${FLIPKART_URL}`);
-    console.log(`Filters: minPrice=${minPrice} (${typeof minPrice}), maxPrice=${maxPrice} (${typeof maxPrice})`);
+    console.log("Opening:", FLIPKART_URL);
 
     try {
-        const context = await browser.newContext({
-            viewport: { width: 1366, height: 768 },
-            // Update to a 2025/2026 era UA
-            userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"
-        });
+        await page.goto(FLIPKART_URL, { waitUntil: "networkidle" });
 
-        const page = await context.newPage();
-        await page.goto(FLIPKART_URL, { waitUntil: "networkidle", timeout: 60000 });
-
-        // Close login popup if present
+        // Close login popup
         try {
             await page.waitForSelector("button._2KpZ6l._2doB4z", { timeout: 5000 });
             await page.click("button._2KpZ6l._2doB4z");
-            await new Promise(resolve => setTimeout(resolve, 1500));
-        } catch {
-            // Ignore if no popup
-        }
+        } catch { }
 
         let allRawProducts: any[] = [];
-        let pageCount = 0;
 
-        while (pageCount < maxPages) {
-            pageCount++;
+        for (let pageCount = 1; pageCount <= maxPages; pageCount++) {
             console.log(`Scraping page ${pageCount}...`);
 
             const productCard = "div[data-id]";
-            try {
-                await page.waitForSelector(productCard, { timeout: 30000 });
-            } catch (e) {
-                console.log(`No products found on page ${pageCount}. Stopping.`);
-                break;
-            }
+            await page.waitForSelector(productCard, { timeout: 30000 });
 
-            await slowScroll(page, 3, 300); // Faster scroll for production environment
+            await slowScroll(page);
 
-            const rawProducts = await page.$$eval(productCard, (cards: any[]) =>
-                cards.map((card: any) => {
+            const rawProducts = await page.$$eval(productCard, cards =>
+                cards.map(card => {
                     const fullText = (card as HTMLElement).innerText;
-                    const link = card.querySelector("a[href]")?.getAttribute("href") || null;
-                    const image = card.querySelector("img")?.src || null;
-                    // Try to get specifically the selling price element
-                    const priceEl = card.querySelector('div._30jeq3, div._30jeq3._1_WHN1');
-                    const priceText = priceEl ? (priceEl as HTMLElement).innerText : null;
+                    const link = card.querySelector("a[href]")?.getAttribute("href");
+                    const image = card.querySelector("img")?.getAttribute("src");
+                    const priceText =
+                        card.querySelector("div._30jeq3, div._30jeq3._1_WHN1")?.textContent;
+
                     return { fullText, link, image, priceText };
                 })
             );
 
-            console.log(`Products found on page ${pageCount}:`, rawProducts.length);
+            console.log("Found:", rawProducts.length);
             allRawProducts.push(...rawProducts);
 
-            // Check for Next button
             const nextBtn = page.locator("a").filter({ hasText: "Next" }).first();
+            if ((await nextBtn.count()) === 0) break;
 
-            if ((await nextBtn.count()) === 0) {
-                console.log("No more pages.");
-                break;
-            }
-
-            try {
-                await Promise.all([
-                    nextBtn.click(),
-                    page.waitForLoadState("networkidle")
-                ]);
-                await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 2000));
-            } catch (e) {
-                console.log("Error navigating to next page:", e);
-                break;
-            }
+            await Promise.all([
+                nextBtn.click(),
+                page.waitForLoadState("networkidle"),
+            ]);
         }
 
-        await browser.close();
+        console.log("Total raw products:", allRawProducts.length);
 
-        console.log(`Total raw products collected: ${allRawProducts.length}`);
-        if (allRawProducts.length > 0) {
-            console.log("Sample raw text:", allRawProducts[0].fullText.substring(0, 100));
-            console.log("Sample extracted price:", allRawProducts[0].priceText);
-        }
-
-        // Process data
-        let parsedProducts = allRawProducts.map(p => {
+        // 🧠 Data cleaning
+        const parsed = allRawProducts.map(p => {
             const text = p.fullText.replace(/\n+/g, " ").trim();
 
-            // Logic to get price:
-            // 1. Use specific priceText if available.
-            // 2. Fallback to regex on fullText, picking the first match (usually selling price) instead of Max (MRP).
-
-            let price = null;
+            let price: number | null = null;
 
             if (p.priceText) {
-                const numeric = p.priceText.replace(/[^0-9]/g, "");
-                if (numeric) price = Number(numeric);
+                const n = p.priceText.replace(/[^0-9]/g, "");
+                if (n) price = Number(n);
             }
 
             if (price === null) {
-                const priceMatches = text.match(/₹\s?[\d,]+/g);
-                if (priceMatches && priceMatches.length > 0) {
-                    // Take the first one as it is usually the main price
-                    price = Number(priceMatches[0].replace(/[^0-9]/g, ""));
-                }
+                const m = text.match(/₹\s?[\d,]+/);
+                if (m) price = Number(m[0].replace(/[^0-9]/g, ""));
             }
 
-            let name = text.split('₹')[0].trim();
-            if (name.length > 150) name = name.substring(0, 150) + "...";
+            let name = text.split("₹")[0].trim();
+            if (name.length > 150) name = name.slice(0, 150) + "...";
 
             return {
                 name,
                 price,
-                link: p.link ? `https://www.flipkart.com${p.link}` : '',
-                image: p.image || '',
+                link: p.link ? `https://www.flipkart.com${p.link}` : "",
+                image: p.image || "",
                 source: "Flipkart",
-                scraped_at: new Date().toISOString()
+                scraped_at: new Date().toISOString(),
             };
         });
 
-        console.log(`Products with valid price extracted: ${parsedProducts.filter(p => p.price !== null).length}`);
+        const final = parsed
+            .filter(
+                (p): p is ScrapedProduct =>
+                    !!p.name && !!p.price && p.price >= minPrice && p.price <= maxPrice
+            )
+            .sort((a, b) => b.price - a.price);
 
-        // Filter
-        let final: ScrapedProduct[] = parsedProducts.filter((p): p is ScrapedProduct => {
-            if (!p.name || !p.price) return false;
-            const inRange = p.price >= minPrice && p.price <= maxPrice;
-            if (!inRange) {
-                console.log(`Filtered out price ${p.price} not in range ${minPrice}-${maxPrice}`);
-            }
-            return inRange;
-        });
-
-        console.log(`Final filtered products: ${final.length}`);
-
-        // Sort High -> Low
-        final.sort((a, b) => b.price - a.price);
+        console.log("Final filtered products:", final.length);
 
         return final;
 
-    } catch (error) {
-        console.error("Scraping failed:", error);
+    } catch (err) {
+        console.error("Scraping failed:", err);
+        throw err;
+    } finally {
         await browser.close();
-        throw error;
+        console.log("Browser closed.");
     }
 }
