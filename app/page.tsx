@@ -430,7 +430,7 @@ export default function Home() {
                       </div>
                       <button
                         onClick={() => deleteHistory(item.query)}
-                        className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition opacity-0 group-hover:opacity-100"
+                        className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
                         title="Delete stored results"
                       >
                         <Trash2 className="w-4 h-4" />
