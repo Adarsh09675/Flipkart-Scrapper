@@ -1,5 +1,6 @@
 
-import { chromium } from 'playwright';
+import { chromium } from 'playwright-core';
+import chromium_vercel from '@sparticuz/chromium';
 
 // Slow scroll function
 async function slowScroll(page: any, steps = 10, delay = 1500) {
@@ -19,7 +20,20 @@ export type ScrapedProduct = {
 };
 
 export async function scrapeFlipkart(query: string, minPrice: number, maxPrice: number, maxPages: number = 10) {
-    const browser = await chromium.launch({ headless: true, slowMo: 30 });
+    let browser;
+    const isVercel = process.env.VERCEL || process.env.NODE_ENV === 'production';
+
+    if (isVercel) {
+        browser = await chromium.launch({
+            args: chromium_vercel.args,
+            executablePath: await chromium_vercel.executablePath(),
+            headless: true,
+        });
+    } else {
+        // For local development, assuming playwright is installed
+        // We use playwright-core but try to launch local chromium
+        browser = await chromium.launch({ headless: true, slowMo: 30 });
+    }
 
     // Format query for URL
     const formattedQuery = encodeURIComponent(query);
