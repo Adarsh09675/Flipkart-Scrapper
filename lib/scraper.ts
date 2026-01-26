@@ -19,7 +19,7 @@ export type ScrapedProduct = {
     scraped_at: string;
 };
 
-export async function scrapeFlipkart(query: string, minPrice: number, maxPrice: number, maxPages: number = 10) {
+export async function scrapeFlipkart(query: string, minPrice: number, maxPrice: number, maxPages: number = 3) {
     let browser;
     const isVercel = process.env.VERCEL || process.env.NODE_ENV === 'production';
 
@@ -75,7 +75,7 @@ export async function scrapeFlipkart(query: string, minPrice: number, maxPrice: 
                 break;
             }
 
-            await slowScroll(page, 5, 500); // Slightly faster scroll for production
+            await slowScroll(page, 3, 300); // Faster scroll for production environment
 
             const rawProducts = await page.$$eval(productCard, cards =>
                 cards.map(card => {

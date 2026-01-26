@@ -1,8 +1,8 @@
-
 import { NextRequest, NextResponse } from 'next/server';
-import { scrapeFlipkart } from '@/lib/scraper';
 import { createClient } from '@/utils/supabase/server';
+import { scrapeFlipkart } from '@/lib/scraper';
 
+export const maxDuration = 60; // Allow up to 60 seconds (requires Vercel Pro/Trial, but good practice)
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
@@ -45,6 +45,11 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: true, count: products.length, data });
     } catch (error: any) {
         console.error('API Error:', error);
-        return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
+        return NextResponse.json({
+            error: 'Internal Server Error',
+            message: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+            type: error.name
+        }, { status: 500 });
     }
 }
