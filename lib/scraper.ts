@@ -24,6 +24,16 @@ export type ScrapedProduct = {
 export async function scrapeFlipkart(query: string, minPrice: number, maxPrice: number, maxPages: number = 3) {
     let browser: any;
     const isVercel = process.env.VERCEL === '1';
+    // Stealth args to avoid detection
+    const stealthArgs = [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-infobars',
+        '--window-position=0,0',
+        '--ignore-certifcate-errors',
+        '--ignore-certifcate-errors-spki-list',
+        '--disable-blink-features=AutomationControlled', // Critical for preventing bot detection
+    ];
 
     if (isVercel) {
         console.log("Environment: Vercel - Launching Chromium...");
@@ -32,7 +42,7 @@ export async function scrapeFlipkart(query: string, minPrice: number, maxPrice: 
             console.log(`Executable Path: ${executablePath}`);
 
             browser = await chromium.launch({
-                args: chromium_vercel.args,
+                args: [...chromium_vercel.args, '--disable-blink-features=AutomationControlled'],
                 executablePath: executablePath || undefined,
                 headless: true,
             });
@@ -48,7 +58,7 @@ export async function scrapeFlipkart(query: string, minPrice: number, maxPrice: 
             const { chromium: localChromium } = await import('playwright');
             browser = await localChromium.launch({
                 headless: true,
-                args: ['--no-sandbox']
+                args: stealthArgs
             });
         } catch (err: any) {
             console.error("Failed to launch local browser:", err);
@@ -66,7 +76,8 @@ export async function scrapeFlipkart(query: string, minPrice: number, maxPrice: 
     try {
         const context = await browser.newContext({
             viewport: { width: 1366, height: 768 },
-            userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            // Update to a 2025/2026 era UA
+            userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"
         });
 
         const page = await context.newPage();
