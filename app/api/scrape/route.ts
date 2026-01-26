@@ -12,6 +12,15 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
+        // Check for Env Vars
+        if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+            console.error("Missing Supabase Environment Variables");
+            return NextResponse.json({
+                error: 'Configuration Error',
+                message: 'Missing Vercel Environment Variables (Supabase URL/Key). Please add them in Vercel Project Settings.'
+            }, { status: 500 });
+        }
+
         // Start scraping
         console.log(`API: Starting scrape for ${query}`);
         const products = await scrapeFlipkart(query, Number(minPrice), Number(maxPrice), Number(maxPages) || 5);
