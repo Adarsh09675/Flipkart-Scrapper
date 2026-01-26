@@ -22,7 +22,7 @@ export type ScrapedProduct = {
 };
 
 export async function scrapeFlipkart(query: string, minPrice: number, maxPrice: number, maxPages: number = 3) {
-    let browser;
+    let browser: any;
     const isVercel = process.env.VERCEL === '1';
 
     if (isVercel) {
@@ -98,8 +98,8 @@ export async function scrapeFlipkart(query: string, minPrice: number, maxPrice: 
 
             await slowScroll(page, 3, 300); // Faster scroll for production environment
 
-            const rawProducts = await page.$$eval(productCard, cards =>
-                cards.map(card => {
+            const rawProducts = await page.$$eval(productCard, (cards: any[]) =>
+                cards.map((card: any) => {
                     const fullText = (card as HTMLElement).innerText;
                     const link = card.querySelector("a[href]")?.getAttribute("href") || null;
                     const image = card.querySelector("img")?.src || null;
