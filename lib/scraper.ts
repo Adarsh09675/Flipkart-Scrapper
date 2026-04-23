@@ -9,14 +9,7 @@ async function slowScroll(page: Page, steps = 6, delay = 400) {
     }
 }
 
-export type ScrapedProduct = {
-    name: string;
-    price: number;
-    link: string;
-    image: string;
-    source: string;
-    scraped_at: string;
-};
+import { ScrapedProduct } from "@/types";
 
 export async function scrapeFlipkart(
     query: string,

@@ -47,6 +47,13 @@ export async function middleware(request: NextRequest) {
 
     // Protected routes
     if (!user && !path.startsWith("/login") && !path.startsWith("/register") && !path.startsWith("/auth") && path !== "/favicon.ico") {
+        // If it's an API route, return a 401 instead of redirecting to HTML login page
+        if (path.startsWith("/api")) {
+            return NextResponse.json(
+                { error: "Unauthorized", message: "Your session has expired. Please log in again." },
+                { status: 401 }
+            );
+        }
         return NextResponse.redirect(new URL("/login", request.url));
     }
 

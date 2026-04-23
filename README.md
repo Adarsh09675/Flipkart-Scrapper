@@ -1,36 +1,125 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🚀 Flipkart Scraper Pro
 
-## Getting Started
+Flipkart Scraper Pro is a high-performance, full-stack web application designed for automated product extraction and price analysis. Built with **Next.js**, **Playwright**, and **Supabase**, it provides a seamless interface for scraping product data, storing search history, and exporting results.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## ✨ Key Features
+
+- **🔍 Advanced Search**: Filter products by query, price range, and number of pages.
+- **⚡ Automated Scraping**: Leverages Playwright for robust, headless data extraction from Flipkart.
+- **📊 Real-time Results**: View scraped product data in a clean, paginated table with live updates.
+- **📅 Search History**: Automatically stores every search and its results for future reference.
+- **📥 Data Export**: Download your scraped data instantly as a CSV file for offline analysis.
+- **🔐 Secure Auth**: Built-in authentication using Supabase Auth (Sign In / Sign Up).
+- **🌙 Premium Dark UI**: A sleek, responsive interface designed with Tailwind CSS and Framer-ready components.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Frontend**: [Next.js](https://nextjs.org/) (App Router, React 19)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+- **Scraper**: [Playwright](https://playwright.dev/) & [Sparticuz Chromium](https://github.com/Sparticuz/chromium)
+- **Backend/Database**: [Supabase](https://supabase.com/)
+- **Icons**: [Lucide React](https://lucide.dev/)
+
+---
+
+## 🚀 Getting Started
+
+Follow these steps to set up the project locally.
+
+### 1. Prerequisites
+
+- **Node.js** (v18.x or later)
+- **pnpm** (recommended) or npm
+- **Supabase Account**: Create a project and set up a `products` table.
+
+### 2. Database Setup (Supabase)
+
+Run the following SQL in your Supabase SQL Editor to create the necessary table:
+
+```sql
+create table products (
+  id uuid default gen_random_uuid() primary key,
+  name text not null,
+  price numeric,
+  link text,
+  image text,
+  source text,
+  scraped_at timestamp with time zone default now(),
+  search_query text,
+  user_id uuid references auth.users(id) on delete cascade
+);
+
+-- Optional: Enable RLS and add policies
+alter table products enable row level security;
+
+create policy "Users can view their own products"
+on products for select
+using (auth.uid() = user_id);
+
+create policy "Users can insert their own products"
+on products for insert
+with check (auth.uid() = user_id);
+
+create policy "Users can delete their own products"
+on products for delete
+using (auth.uid() = user_id);
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. Installation
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Clone the repository and install dependencies:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# Install dependencies
+pnpm install
 
-## Learn More
+# Install Playwright browsers
+npx playwright install chromium
+```
 
-To learn more about Next.js, take a look at the following resources:
+### 4. Environment Variables
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Copy the [`.env.example`](file:///.env.example) file to `.env.local` and fill in your Supabase credentials:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+cp .env.example .env.local
+```
 
-## Deploy on Vercel
+Edit `.env.local`:
+- `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL.
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your Supabase anon key.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 5. Run the Application
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+# Start development server
+pnpm dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+---
+
+## 📁 Project Structure
+
+- `app/`: Next.js pages and API routes.
+- `components/`: Modular UI components (Header, SearchForm, Results, etc.).
+- `lib/`: Core scraper logic using Playwright.
+- `utils/`: Supabase client and server-side helpers.
+- `types/`: Shared TypeScript interfaces.
+
+---
+
+## 📝 License
+
+This project is open-source and available under the [MIT License](LICENSE).
+
+---
+
+<p align="center">
+  Built with ❤️ for better data extraction.
+</p>
